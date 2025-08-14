@@ -1,3 +1,4 @@
+import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -5,13 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Skeleton } from "./ui/skeleton";
-import { Loader2, Home, Trophy, Calendar, MapPin, Heart } from "lucide-react";
+import { Loader2, Home, Trophy, Calendar, MapPin, Heart, Share, Copy, Check } from "lucide-react";
 import type { Id } from "../../convex/_generated/dataModel";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export function RoastDisplay() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [copied, setCopied] = React.useState(false);
   
   const roast = useQuery(api.roasts.getRoast, 
     id ? { id: id as Id<"roasts"> } : "skip"
@@ -54,6 +57,32 @@ export function RoastDisplay() {
   const isGenerating = roast.roastText === "Generating your roast...";
   const birthDate = new Date(roast.birthdate);
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success("Link copied to clipboard!");
+      
+      // Reset copied state after 2 seconds
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = url;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      
+      setCopied(true);
+      toast.success("Link copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <div className="min-h-screen p-4 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950 dark:to-red-950">
       <div className="w-full max-w-3xl mx-auto space-y-6">
@@ -69,9 +98,23 @@ export function RoastDisplay() {
                 {roast.nationality}
               </Badge>
             </div>
-            <CardTitle className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-              🔥 {roast.name} Got Roasted! 🔥
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                🔥 {roast.name} Got Roasted! 🔥
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleShare}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
             <CardDescription className="flex items-center justify-center text-base">
               <Calendar className="w-4 h-4 mr-2" />
               Born {format(birthDate, "MMMM d, yyyy")}
@@ -140,6 +183,23 @@ export function RoastDisplay() {
           >
             <Home className="mr-2 h-5 w-5" />
             Get Another Roast
+          </Button>
+          <Button 
+            onClick={handleShare}
+            variant="outline"
+            className="flex-1 h-12 border-2 hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 dark:hover:from-green-950 dark:hover:to-blue-950"
+          >
+            {copied ? (
+              <>
+                <Check className="mr-2 h-5 w-5 text-green-600" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Share className="mr-2 h-5 w-5 text-blue-600" />
+                Share Link
+              </>
+            )}
           </Button>
           <Button 
             onClick={() => navigate("/leaderboard")}

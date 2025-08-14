@@ -2,6 +2,42 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
+// Rate limiting: check recent roast count
+export const checkRateLimit = query({
+  args: {},
+  returns: v.object({
+    canCreate: v.boolean(),
+    recentCount: v.number(),
+    resetTime: v.optional(v.number()),
+  }),
+  handler: async (ctx) => {
+    const threeHoursAgo = Date.now() - (3 * 60 * 60 * 1000); // 3 hours in milliseconds
+    const RATE_LIMIT = 20;
+    
+    const recentRoasts = await ctx.db
+      .query("roasts")
+      .withIndex("by_creation")
+      .filter((q) => q.gte(q.field("createdAt"), threeHoursAgo))
+      .collect();
+    
+    const recentCount = recentRoasts.length;
+    const canCreate = recentCount < RATE_LIMIT;
+    
+    // If at limit, calculate when the oldest roast in the window will expire
+    let resetTime;
+    if (!canCreate && recentRoasts.length > 0) {
+      const oldestRecentRoast = recentRoasts[recentRoasts.length - 1];
+      resetTime = oldestRecentRoast.createdAt + (3 * 60 * 60 * 1000);
+    }
+    
+    return {
+      canCreate,
+      recentCount,
+      resetTime,
+    };
+  },
+});
+
 // Query to get all roasts for the leaderboard
 export const listRoasts = query({
   args: {},
@@ -64,6 +100,20 @@ export const createRoast = mutation({
   },
   returns: v.id("roasts"),
   handler: async (ctx, args) => {
+    // Check rate limit first
+    const threeHoursAgo = Date.now() - (3 * 60 * 60 * 1000);
+    const RATE_LIMIT = 20;
+    
+    const recentRoasts = await ctx.db
+      .query("roasts")
+      .withIndex("by_creation")
+      .filter((q) => q.gte(q.field("createdAt"), threeHoursAgo))
+      .collect();
+    
+    if (recentRoasts.length >= RATE_LIMIT) {
+      throw new Error("RATE_LIMIT_EXCEEDED");
+    }
+    
     // Calculate zodiac sign
     const zodiacSign = getZodiacSign(args.birthdate);
     

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -17,6 +17,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { RateLimitBanner } from "./RateLimitBanner";
 
 const COMMON_NATIONALITIES = [
   "American", "British", "Canadian", "Australian", "German", "French", 
@@ -30,6 +31,7 @@ const COMMON_NATIONALITIES = [
 export function RoastForm() {
   const navigate = useNavigate();
   const createRoast = useMutation(api.roasts.createRoast);
+  const rateLimitInfo = useQuery(api.roasts.checkRateLimit);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -58,14 +60,25 @@ export function RoastForm() {
       navigate(`/roast/${roastId}`);
     } catch (error) {
       console.error("Error creating roast:", error);
-      toast.error("Failed to create roast. Please try again!");
+      
+      if (error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED") {
+        toast.error("Rate limit exceeded! Please try again in a few hours or run locally.");
+      } else {
+        toast.error("Failed to create roast. Please try again!");
+      }
+      
       setIsSubmitting(false);
     }
   };
 
+  const canSubmit = rateLimitInfo?.canCreate !== false && !isSubmitting;
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950 dark:to-red-950">
-      <Card className="w-full max-w-lg mx-auto shadow-xl">
+      <div className="w-full max-w-lg mx-auto">
+        <RateLimitBanner />
+        
+        <Card className="w-full shadow-xl">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
             🔥 The Roaster 🔥
@@ -142,14 +155,16 @@ export function RoastForm() {
 
             <Button
               type="submit"
-              className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700"
-              disabled={isSubmitting}
+              className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!canSubmit}
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Preparing your roast...
                 </>
+              ) : rateLimitInfo?.canCreate === false ? (
+                "Rate Limit Reached 🚫"
               ) : (
                 "Get Roasted! 🔥"
               )}
@@ -168,7 +183,8 @@ export function RoastForm() {
             </Button>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -6,12 +6,34 @@ import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Skeleton } from "./ui/skeleton";
 import { useNavigate } from "react-router-dom";
-import { Home, Loader2, Trophy, Clock, MapPin, Sparkles } from "lucide-react";
+import { Home, Loader2, Trophy, Clock, MapPin, Sparkles, Share } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 export function Leaderboard() {
   const navigate = useNavigate();
   const roasts = useQuery(api.roasts.listRoasts);
+
+  const handleShare = async (roastId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent card click navigation
+    
+    const url = `${window.location.origin}/roast/${roastId}`;
+    
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Roast link copied to clipboard!");
+    } catch (error) {
+      console.error("Failed to copy:", error);
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = url;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      toast.success("Roast link copied to clipboard!");
+    }
+  };
 
   return (
     <div className="min-h-screen p-4 bg-gradient-to-br from-yellow-50 via-orange-50 to-red-50 dark:from-yellow-950 dark:via-orange-950 dark:to-red-950">
@@ -119,8 +141,16 @@ export function Leaderboard() {
                                   </Badge>
                                 </div>
                               </div>
-                              <div className="flex flex-col items-end text-xs text-muted-foreground ml-4">
-                                <div className="flex items-center">
+                              <div className="flex flex-col items-end space-y-1 ml-4">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => handleShare(roast._id, e)}
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                >
+                                  <Share className="w-3 h-3" />
+                                </Button>
+                                <div className="flex items-center text-xs text-muted-foreground">
                                   <Clock className="w-3 h-3 mr-1" />
                                   {formatDistanceToNow(new Date(roast.createdAt), { addSuffix: true })}
                                 </div>
