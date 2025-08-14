@@ -96,6 +96,12 @@ Once set up, every push to your main branch will:
 ### Build Fails
 - Check that all dependencies are in `package.json`
 - Ensure TypeScript compiles locally: `pnpm build`
+- For Tailwind v4: Make sure `tailwindcss` is in dependencies (not just devDependencies)
+
+### TypeScript Errors
+- Unused imports cause build failures in production
+- Use type-only imports: `import { type SomeType } from "module"`
+- Remove unused imports before deploying
 
 ### App Loads but API Calls Fail
 - Verify `VITE_CONVEX_URL` is set in Vercel
